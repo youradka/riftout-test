@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='kartygalstyles.css') }}">
+    <title>Riftout - Galéria Kariet</title>
+</head>
+<body>
+    <header>
+        <a href="/homepage"><h1 style="font-size:150%">Riftout</h1></a>
+        <nav id="nav-list">
+            <ul>
+                <li class="nav-ul"><a class="nav-text" href="/play.page">Hrať</a></li>
+                <li class="nav-ul"><a class="nav-text" href="/kartygal">Karty</a></li>
+                <li class="nav-ul"><a class="nav-text" href="/decky">Decky</a></li> 
+                <li class="nav-ul"><a class="nav-text" href="/forum">Fórum</a></li>
+            </ul>
+        </nav>
+        <div class="header-user-action">
+            {% if logged_in %}
+                <a href="/editor" class="profile-link" title="Profil">
+                    {% if profile_pic %}
+                        <img src="data:image/jpeg;base64,{{ profile_pic }}" alt="Profilová fotka" class="user-avatar">
+                    {% else %}
+                        <div class="user-avatar-placeholder">👤</div>
+                    {% endif %}
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="add-user-btn" title="Prihlásiť sa / Pridať účet">+</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="gallery-container">
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Hľadaj kartu (napr. Annie, Void, fury)...">
+            <button type="button" onclick="filterGallery()">Hľadať</button>
+        </div>
+
+        <div id="cardCount" class="card-count"></div>
+
+        <div id="cardGrid" class="card-grid">
+            <p>Načítavam karty...</p>
+        </div>
+    </main>
+
+    <footer>
+        Andrea Kmeťová • Dáta od <a href="https://openrift.app" target="_blank">OpenRift</a>
+    </footer>
+
+    <script>
+        let allUniqueCards = [];
+
+        function extractUniqueCardsFromCatalog(raw) {
+            const allCards = [];
+            const allPrintings = [];
+
+            function scan(node) {
+                if (!node || typeof node !== "object") return;
+                if (Array.isArray(node)) {
+                    node.forEach(scan);
+                    return;
+                }
+                const imgId = node.imageId ?? node.image_id;
+                if (imgId !== undefined && imgId !== null && String(imgId) !== "") {
+                    allPrintings.push(node);
+                } else if (node.name && (node.domains || node.energy !== undefined || node.printedRulesText || node.tags || node.slug || node.type || node.cardType)) {
+                    allCards.push(node);
+                }
+                Object.values(node).forEach(scan);
+            }
+
+            scan(raw);
+
+            // Mapujeme každú kartu na 1 základný (ne-promo) printing
+            const printingByCardKey = {};
+            allPrintings.forEach(p => {
+                const imgStr = String(p.imageId ?? p.image_id);
+                const codeStr = String(p.publicCode || "");
+                const isPromo = codeStr.toLowerCase().includes("promo") || String(p.setId || "").toLowerCase().includes("promo") || Boolean(p.isPromo);
+
+                ["cardId", "card_id", "cardSlug", "card_slug", "id", "slug", "name"].forEach(k => {
+                    if (p[k] !== undefined && p[k] !== null && String(p[k]) !== "") {
+                        const key = String(p[k]).toLowerCase();
+                        if (!printingByCardKey[key] || (printingByCardKey[key].isPromo && !isPromo)) {
+                            printingByCardKey[key] = {
+                                imageId: imgStr,
+                                publicCode: codeStr,
+                                isPromo: isPromo
+                            };
+                        }
+                    }
+                });
+            });
+
+            const uniqueCards = [];
+            const seenNames = new Set();
+
+            // 1. Spárujeme unikátne karty s jedným obrázkom
+            allCards.forEach(c => {
+                const name = String(c.name || "").trim();
+                if (!name) return;
+                const nameKey = name.toLowerCase();
+                if (seenNames.has(nameKey)) return;
+
+                let matchedPrint = null;
+
+                if (Array.isArray(c.printings) && c.printings.length > 0) {
+                    const nonPromo = c.printings.find(p => (p.imageId || p.image_id) && !String(p.publicCode || "").toLowerCase().includes("promo")) || c.printings[0];
+                    if (nonPromo && (nonPromo.imageId || nonPromo.image_id)) {
+                        matchedPrint = {
+                            imageId: String(nonPromo.imageId ?? nonPromo.image_id),
+                            publicCode: String(nonPromo.publicCode || c.publicCode || "")
+                        };
+                    }
+                }
+
+                if (!matchedPrint) {
+                    for (const k of ["id", "cardId", "slug", "name", "publicCode"]) {
+                        if (c[k] !== undefined && c[k] !== null) {
+                            const lookup = String(c[k]).toLowerCase();
+                            if (printingByCardKey[lookup]) {
+                                matchedPrint = printingByCardKey[lookup];
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!matchedPrint) return;
+
+                seenNames.add(nameKey);
+                const domains = Array.isArray(c.domains) ? c.domains.join(" ") : String(c.domains || "");
+                const tags = Array.isArray(c.tags) ? c.tags.join(" ") : String(c.tags || "");
+                const rules = String(c.printedRulesText || "");
+                const code = matchedPrint.publicCode || String(c.publicCode || "");
+
+                uniqueCards.push({
+                    name: name,
+                    publicCode: code,
+                    searchText: `${name} ${code} ${domains} ${tags} ${rules} ${matchedPrint.imageId}`.toLowerCase(),
+                    imageUrl: `https://openrift.app/media/cards/${matchedPrint.imageId}-240w.webp`
+                });
+            });
+
+            // 2. Ak boli v odpovedi printings samostatne, odfiltrujeme duplicity podľa cardId / základu mena
+            if (uniqueCards.length === 0) {
+                const seenCardIds = new Set();
+                allPrintings.forEach(p => {
+                    const imgStr = String(p.imageId ?? p.image_id);
+                    // Zistíme unikátne ID karty (bez čísla printingu/variantu)
+                    const baseCardKey = String(
+                        p.cardId ?? p.card_id ?? p.cardSlug ?? p.card_slug ?? p.name ?? imgStr.replace(/[-_]\d+$/, "")
+                    ).toLowerCase();
+
+                    if (seenCardIds.has(baseCardKey)) return;
+                    seenCardIds.add(baseCardKey);
+
+                    const name = String(p.name || p.cardSlug || p.publicCode || imgStr);
+                    const code = String(p.publicCode || "");
+                    uniqueCards.push({
+                        name: name,
+                        publicCode: code,
+                        searchText: `${name} ${code} ${baseCardKey} ${imgStr}`.toLowerCase(),
+                        imageUrl: `https://openrift.app/media/cards/${imgStr}-240w.webp`
+                    });
+                });
+            }
+
+            uniqueCards.sort((a, b) => a.name.localeCompare(b.name));
+            return uniqueCards;
+        }
+
+        function renderCards(cards) {
+            const grid = document.getElementById("cardGrid");
+            const countEl = document.getElementById("cardCount");
+
+            countEl.textContent = `Zobrazených unikátnych kariet: ${cards.length}`;
+
+            if (cards.length === 0) {
+                grid.innerHTML = "<p>Žiadne karty sa nenašli.</p>";
+                return;
+            }
+
+            grid.innerHTML = "";
+            cards.forEach(card => {
+                const cardEl = document.createElement("div");
+                cardEl.className = "card-item";
+                cardEl.title = `${card.name} ${card.publicCode ? '(' + card.publicCode + ')' : ''}`;
+                cardEl.innerHTML = `<img src="${card.imageUrl}" alt="${card.name || 'Karta'}" loading="lazy">`;
+                grid.appendChild(cardEl);
+            });
+        }
+
+        function filterGallery() {
+            const query = document.getElementById("searchInput").value.trim().toLowerCase();
+            if (!query) {
+                renderCards(allUniqueCards);
+                return;
+            }
+            const filtered = allUniqueCards.filter(card => card.searchText.includes(query));
+            renderCards(filtered);
+        }
+
+        async function initGallery() {
+            const grid = document.getElementById("cardGrid");
+            grid.innerHTML = "<p>Načítavam karty...</p>";
+
+            try {
+                // 1. Skúsime stiahnuť z nášho Flask backendu (/api/karty), ktorý už filtruje unikátne karty
+                const response = await fetch("/api/karty");
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.cards && result.cards.length > 0) {
+                        allUniqueCards = result.cards;
+                    }
+                }
+
+                // 2. Záložné priame stiahnutie z OpenRift, ak by backend nevrátil karty
+                if (allUniqueCards.length === 0) {
+                    const directResp = await fetch("https://openrift.app/api/v1/catalog?langs=EN");
+                    if (directResp.ok) {
+                        const rawData = await directResp.json();
+                        allUniqueCards = extractUniqueCardsFromCatalog(rawData);
+                    }
+                }
+
+                renderCards(allUniqueCards);
+            } catch (error) {
+                console.error("Chyba:", error);
+                grid.innerHTML = `<p>Nepodarilo sa načítať karty (${error.message}).</p>`;
+            }
+        }
+
+        // Vyhľadávanie funguje okamžite pri písaní aj po stlačení Enter
+        document.getElementById("searchInput").addEventListener("input", filterGallery);
+        document.getElementById("searchInput").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") filterGallery();
+        });
+
+        initGallery();
+    </script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='deckystyles.css') }}">
+    <title>Riftout</title>
+</head>
+<body>
+    <header>
+        <a href="/homepage"><h1 style="font-size:150%">Riftout</h1></a>
+        
+        <nav id="nav-list">
+            <ul>
+            <li class="nav-ul"><a class=" nav-text" href="/play.page">Hrať</a></li>
+            <li class="nav-ul"><a class=" nav-text" href="/kartygal">Karty</a></li>
+            <li class="nav-ul"><a class=" nav-text" href="/decky">Decky</a></li> 
+            <li class="nav-ul"><a class=" nav-text" href="/forum">Fórum</a></li>
+            </ul>
+        </nav>
+        <div class="header-user-action">
+            {% if logged_in %}
+                <a href="{{ url_for('editor') }}" class="profile-link" title="Profil">
+                    {% if profile_pic %}
+                        <img src="data:image/jpeg;base64,{{ profile_pic }}" alt="Profilová fotka" class="user-avatar">
+                    {% else %}
+                        <div class="user-avatar-placeholder">👤</div>
+                    {% endif %}
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="add-user-btn" title="Prihlásiť sa / Pridať účet">+</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main>
+        <section>
+        <form>
+            <button type="submit">Pridaj</button>
+        </form>
+        </section>
+    </main>    
+
+    <footer>Andrea Kmeťová</footer> 
+</body>
+</html>
