@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='playstyles.css') }}">
+    <title>Riftout - Hrať</title>
+</head>
+<body>
+    <header>
+        <a href="/homepage"><h1>Riftout</h1></a>
+        
+        <nav id="nav-list">
+            <ul>
+                <li class="nav-ul"><a class="nav-text" href="/play.page">Hrať</a></li>
+                <li class="nav-ul"><a class="nav-text" href="/kartygal">Karty</a></li>
+                <li class="nav-ul"><a class="nav-text" href="/decky">Decky</a></li> 
+                <li class="nav-ul"><a class="nav-text" href="/forum">Fórum</a></li>
+            </ul>
+        </nav>
+        <div class="header-user-action">
+            {% if logged_in %}
+                <a href="{{ url_for('editor') }}" class="profile-link" title="Profil">
+                    {% if profile_pic %}
+                        <img src="data:image/jpeg;base64,{{ profile_pic }}" alt="Profilová fotka" class="user-avatar">
+                    {% else %}
+                        <div class="user-avatar-placeholder">👤</div>
+                    {% endif %}
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="add-user-btn" title="Prihlásiť sa / Pridať účet">+</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="lobby-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <section class="create-lobby-box">
+            <h2>Vytvoriť nové 1v1 Lobby</h2>
+            {% if logged_in %}
+                {% if decks %}
+                    <form action="{{ url_for('create_lobby') }}" method="POST" class="lobby-form">
+                        <label for="create-deck-select">Vyber si deck:</label>
+                        <select name="iddeck" id="create-deck-select" required>
+                            {% for d in decks %}
+                                <option value="{{ d.iddeck }}">
+                                    Deck #{{ d.iddeck }} – {{ d.legenda }} (od {{ d.autor }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="lobby-btn">+ Vytvoriť Lobby</button>
+                    </form>
+                {% else %}
+                    <p>V databáze zatiaľ nie sú žiadne decky. Najprv si vytvor deck v sekcii <a href="/decky" class="purple-link">Decky</a>.</p>
+                {% endif %}
+            {% else %}
+                <p>Pre vytvorenie alebo pripojenie do lobby sa musíš <a href="{{ url_for('login') }}" class="purple-link">prihlásiť</a>.</p>
+            {% endif %}
+        </section>
+
+        <section class="lobby-list-section">
+            <h2>Aktívne Lobby</h2>
+            <div class="lobby-grid">
+                {% for l in lobbies %}
+                    <div class="lobby-card">
+                        <div class="lobby-header">
+                            <span class="lobby-id">Lobby #{{ l.idlobby }}</span>
+                            <span class="lobby-status {{ l.stav }}">
+                                {% if l.stav == 'waiting' %}Čaká na hráča (1/2){% else %}Prebieha hra (2/2){% endif %}
+                            </span>
+                        </div>
+
+                        <div class="lobby-players">
+                            <div class="player-slot">
+                                <strong>Hráč 1:</strong> {{ l.player1 }}
+                                <span class="deck-badge">Deck #{{ l.player1_iddeck }} ({{ l.p1_legenda }})</span>
+                            </div>
+
+                            <div class="vs-divider">VS</div>
+
+                            <div class="player-slot">
+                                {% if l.player2 %}
+                                    <strong>Hráč 2:</strong> {{ l.player2 }}
+                                    <span class="deck-badge">Deck #{{ l.player2_iddeck }} ({{ l.p2_legenda }})</span>
+                                {% else %}
+                                    <strong>Hráč 2:</strong> <em>Воľné miesto...</em>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if logged_in and not l.player2 and session.get('username') != l.player1 and decks %}
+                            <form action="{{ url_for('join_lobby', idlobby=l.idlobby) }}" method="POST" class="join-lobby-form">
+                                <select name="iddeck" required>
+                                    {% for d in decks %}
+                                        <option value="{{ d.iddeck }}">
+                                            Deck #{{ d.iddeck }} – {{ d.legenda }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="lobby-btn join-btn">Pripojiť sa</button>
+                            </form>
+                        {% endif %}
+
+                        {% if session.get('username') == l.player1 or session.get('username') == l.player2 or session.get('username') == 'admin' %}
+                            <form action="{{ url_for('delete_lobby', idlobby=l.idlobby) }}" method="POST">
+                                <button type="submit" class="delete-lobby-btn">Ukončiť / Zmazať Lobby</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p class="no-lobbies">Momentálne nie sú otvorené žiadne lobby. Vytvor prvé vyššie!</p>
+                {% endfor %}
+            </div>
+        </section>
+    </main>    
+
+    <footer>Andrea Kmeťová</footer> 
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='forumstyle.css') }}">
+    <title>Fórum</title>
+</head>
+<body>
+<header>
+    <a href="/homepage"><h1 style="font-size:150%">Riftout</h1></a>
+    <nav id="nav-list">
+        <ul>
+            <li class="nav-ul"><a class="nav-text" href="/play.page">Hrať</a></li>
+            <li class="nav-ul"><a class="nav-text" href="/kartygal">Karty</a></li>
+            <li class="nav-ul"><a class="nav-text" href="/decky">Decky</a></li> 
+            <li class="nav-ul"><a class="nav-text" href="/forum">Fórum</a></li>
+        </ul>
+    </nav>
+    <div class="header-user-action">
+        {% if logged_in %}
+            <a href="{{ url_for('editor') }}" class="profile-link" title="Profil">
+                {% if profile_pic %}
+                    <img src="data:image/jpeg;base64,{{ profile_pic }}" alt="Profilová fotka" class="user-avatar">
+                {% else %}
+                    <div class="user-avatar-placeholder">👤</div>
+                {% endif %}
+            </a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="add-user-btn" title="Prihlásiť sa / Pridať účet">+</a>
+        {% endif %}
+    </div>
+</header>
+
+<main>
+    <section class="forum">
+
+        <!-- Zobrazenie flash správ (napr. "Príspevok bol úspešne pridaný!") -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Board header -->
+        <div class="board-header">
+            <h2>/diskusia/ – Riftbound</h2>
+            <button class="new-post-btn">+ Nový príspevok</button>
+        </div>
+
+        <!-- OPRAVA 1: Pridané action, method="POST" a atribúty name="nazov" a name="obsah" -->
+        <form class="new-post" action="{{ url_for('pridaj_prispevok') }}" method="POST">
+            <input type="text" name="nazov" placeholder="Názov príspevku" required>
+            <textarea name="obsah" placeholder="Obsah príspevku..." required></textarea>
+            <button type="submit">Odoslať</button>
+        </form>
+
+        <!-- OPRAVA 2: Cyklus na dynamické vypísanie všetkých príspevkov z databázy -->
+        {% for post in posts %}
+        <article class="post">
+            <!-- Hlasovanie (Up / Down) prepojené s funkciou 'hlasuj' v Pythone -->
+            <div class="vote">
+                <form action="{{ url_for('hlasuj', idposty=post.idposty, akcia='up') }}" method="POST" style="display:inline;">
+                    <button type="submit" style="background:none; border:none; cursor:pointer; color:inherit;">▲</button>
+                </form>
+                <br>{{ post.plikes }}<br>
+                <form action="{{ url_for('hlasuj', idposty=post.idposty, akcia='down') }}" method="POST" style="display:inline;">
+                    <button type="submit" style="background:none; border:none; cursor:pointer; color:inherit;">▼</button>
+                </form>
+            </div>
+
+            <div class="post-content">
+                <h3>{{ post.nazov }}</h3>
+                <p>{{ post.obsah }}</p>
+                <span class="post-meta">{{ post.autor }} • {{ post.pdatum }}</span>
+
+                <!-- Tlačidlo na vymazanie príspevku (zobrazí sa len autorovi alebo adminovi) -->
+                {% if session.get('username') == post.autor or session.get('username') == 'admin' %}
+                <form action="{{ url_for('vymaz_prispevok', idposty=post.idposty) }}" method="POST" style="display:inline;">
+                    <button type="submit" class="delete-btn">Vymazať príspevok</button>
+                </form>
+                {% endif %}
+
+                <!-- Sekcia komentárov -->
+                <div class="comments">
+                    <!-- Vypísanie existujúcich komentárov k príspevku -->
+                    {% for koment in post.komentare %}
+                    <div class="comment">
+                        <span class="comment-meta">{{ koment.autor }} • {{ koment.datum }}</span>
+                        <p>{{ koment.obsah }}</p>
+
+                        <!-- Tlačidlo na vymazanie komentára -->
+                        {% if session.get('username') == koment.autor or session.get('username') == 'admin' %}
+                        <form action="{{ url_for('vymaz_komentar', idkomenty=koment.idkomenty) }}" method="POST" style="display:inline;">
+                            <button type="submit" class="delete-comment-btn">✕</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <!-- OPRAVA 3: Formulár na pridanie komentára prepojený s Pythonom (name="kobsah") -->
+                    <form class="comment-form" action="{{ url_for('pridaj_komentar', idposty=post.idposty) }}" method="POST">
+                        <input type="text" name="kobsah" placeholder="Napíš komentár..." required>
+                        <button type="submit">Odpovedať</button>
+                    </form>
+                </div>
+            </div>
+        </article>
+        {% else %}
+            <p>Zatiaľ tu nie sú žiadne príspevky. Buď prvá a pridaj niečo!</p>
+        {% endfor %}
+
+    </section>
+</main>    
+<footer>Andrea Kmeťová</footer>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='editorstyles.css') }}">
+    <title>Riftout - Úprava profilu</title>
+</head>
+<body>
+    <header>
+        <a href="/homepage"><h1 style="font-size:150%">Riftout</h1></a>
+        
+        <nav id="nav-list">
+            <ul>
+                <li class="nav-ul"><a class="nav-text" href="/play.page">Hrať</a></li>
+                <li class="nav-ul"><a class="nav-text" href="/kartygal">Karty</a></li>
+                <li class="nav-ul"><a class="nav-text" href="/decky">Decky</a></li> 
+                <li class="nav-ul"><a class="nav-text" href="/forum">Fórum</a></li>
+            </ul>
+        </nav>
+        <div class="header-user-action">
+            {% if logged_in %}
+                <a href="{{ url_for('editor') }}" class="profile-link" title="Profil">
+                    {% if profile_pic %}
+                        <img src="data:image/jpeg;base64,{{ profile_pic }}" alt="Profilová fotka" class="user-avatar">
+                    {% else %}
+                        <div class="user-avatar-placeholder">👤</div>
+                    {% endif %}
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="add-user-btn" title="Prihlásiť sa / Pridať účet">+</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="editor-container">
+        <!-- Zobrazenie správ (napr. "Profilová fotka bola úspešne zmenená!") -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="profile-card">
+            <h2>Môj profil ({{ session.get('username') }})</h2>
+
+            <!-- Náhľad aktuálnej profilovej fotky -->
+            <div class="current-pic-wrapper">
+                {% if profile_pic %}
+                    <img src="data:image/jpeg;base64,{{ profile_pic }}" alt="Profilová fotka" class="large-avatar">
+                {% else %}
+                    <div class="large-avatar-placeholder">👤</div>
+                {% endif %}
+            </div>
+
+            <!-- Formulár na zmenu profilovej fotky (prepojený na /update_profile_pic) -->
+            <!-- DÔLEŽITÉ: pri nahrávaní súborov musí mať formulár enctype="multipart/form-data" -->
+            <form action="{{ url_for('update_profile_pic') }}" method="POST" enctype="multipart/form-data" class="upload-form">
+                <label for="profile-pic">Vyber novú profilovú fotku:</label>
+                <input type="file" id="profile-pic" name="profile-pic" accept="image/*" required>
+                <button type="submit" class="btn-save">Uložiť fotku</button>
+            </form>
+
+            <hr>
+
+            <!-- Opravený formulár na odhlásenie (bez čiarok a bez neexistujúcej premennej user.username) -->
+            <form action="{{ url_for('logout') }}" method="POST">
+                <button type="submit" class="Odhlas">Odhlásiť sa</button>
+            </form>
+        </div>
+    </main>    
+
+    <footer>Andrea Kmeťová</footer> 
+</body>
+</html>
