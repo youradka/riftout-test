@@ -6,15 +6,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='homestyles.css') }}">
     <title>Riftout</title>
 </head>
-<header>
+<body>
+    <header>
         <a href="/homepage"><h1 style="font-size:150%">Riftout</h1></a>
         
         <nav id="nav-list">
             <ul>
-            <li class="nav-ul"><a class=" nav-text" href="{% if logged_in %}/play.page{% else %}/signup {% endif %}">Začni hrať</a></li>
-            <li class="nav-ul"><a class=" nav-text" href="/kartygal">Karty</a></li>
-            <li class="nav-ul"><a class=" nav-text" href="{% if logged_in %}/decky{% else %}/signup {% endif %}">Decky</a></li> 
-            <li class="nav-ul"><a class=" nav-text" href="/forum">Fórum</a></li>
+                <li class="nav-ul"><a class="nav-text" href="/play.page">Začni hrať</a></li>
+                <li class="nav-ul"><a class="nav-text" href="/kartygal">Karty</a></li>
+                <li class="nav-ul"><a class="nav-text" href="/decky">Decky</a></li> 
+                <li class="nav-ul"><a class="nav-text" href="/forum">Fórum</a></li>
             </ul>
         </nav>
         <div class="header-user-action">
@@ -30,40 +31,43 @@
                 <a href="{{ url_for('login') }}" class="add-user-btn" title="Prihlásiť sa / Pridať účet">+</a>
             {% endif %}
         </div>
-</header>
-<body>
-<div class="split-bg-container">
-    <div class="half-screen">
+    </header>
+    <aside class="left-info-panel">
+        <h2>Vitaj v Riftoute</h2>
+        <p>Porozprávaj sa s ostatnými na fóre, pozri sa na najnovšie karty alebo si skús zahrať s kamarátom (hranie sa ešte vyvíja) </p>
+    </aside>
+    <div class="split-bg-container">
+        <div class="half-screen">
             <div class="scrolling-track track-top">
                 <!-- SET 1 (Will be revealed as we pan right) -->
                 <div class="image-set">
-                    <img src="{{ url_for('static', filename='/obrazky/missfortune.png') }}" alt="Leblanc Card">
-                    <img src="{{ url_for('static', filename='/obrazky/lillia.jpg') }}" alt="Karta 2">
-                    <img src="{{ url_for('static', filename='/obrazky/lux.jpg') }}" alt="lux">
-                    <img src="{{ url_for('static', filename='/obrazky/vex.jpg') }}" alt="vex">
-                    <img src="{{ url_for('static', filename='/obrazky/darius.png') }}" alt="Karta 5">
-                    <img src="{{ url_for('static', filename='/obrazky/leona.png') }}" alt="Karta 5">
-                    <img src="{{ url_for('static', filename='/obrazky/mel.jpg') }}" alt="Karta 5">
-                    <img src="{{ url_for('static', filename='/obrazky/teemo.png') }}" alt="Karta 5">
-                    <img src="{{ url_for('static', filename='/obrazky/kaisa.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/shen.png') }}" alt="Shen">
+                    <img src="{{ url_for('static', filename='obrazky/ahrihigh.png') }}" alt="Ahri">
+                    <img src="{{ url_for('static', filename='obrazky/lux.jpg') }}" alt="lux">
+                    <img src="{{ url_for('static', filename='obrazky/vexhigh.png') }}" alt="vex">
+                    <img src="{{ url_for('static', filename='obrazky/jax.png') }}" alt="Jax">
+                    <img src="{{ url_for('static', filename='obrazky/leona.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/mel.jpg') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/teemo.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/kaisa.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/jinxhigh.png') }}" alt="Jinx">
                 </div>
                 <!-- SET 2 (Duplicate for seamless loop) -->
                 <div class="image-set">
-                    <img src="{{ url_for('static', filename='/obrazky/missfortune.png') }}" alt="Leblanc Card">
-                    <img src="{{ url_for('static', filename='/obrazky/lillia.jpg') }}" alt="Karta 2">
-                    <img src="{{ url_for('static', filename='/obrazky/lux.jpg') }}" alt="lux">
-                    <img src="{{ url_for('static', filename='/obrazky/vex.jpg') }}" alt="vex">
-                    <img src="{{ url_for('static', filename='/obrazky/darius.png') }}" alt="Karta 5">
-                    <img src="{{ url_for('static', filename='/obrazky/leona.png') }}" alt="Karta 5">
-                    <img src="{{ url_for('static', filename='/obrazky/mel.jpg') }}" alt="Karta 5">
-                    <img src="{{ url_for('static', filename='/obrazky/teemo.png') }}" alt="Karta 5">
-                    <img src="{{ url_for('static', filename='/obrazky/kaisa.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/shen.png') }}" alt="Shen">
+                    <img src="{{ url_for('static', filename='obrazky/ahrihigh.png') }}" alt="Ahri">
+                    <img src="{{ url_for('static', filename='obrazky/lux.jpg') }}" alt="lux">
+                    <img src="{{ url_for('static', filename='obrazky/vexhigh.png') }}" alt="vex">
+                    <img src="{{ url_for('static', filename='obrazky/jax.png') }}" alt="Jax">
+                    <img src="{{ url_for('static', filename='obrazky/leona.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/mel.jpg') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/teemo.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/kaisa.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='obrazky/jinxhigh.png') }}" alt="Jinx">
                 </div>
             </div>
         </div>   
-  </div>
-
-    
+    </div>
+    <footer>Andrea Kmeťová</footer> 
 </body>
-<footer>Andrea Kmeťová</footer> 
 </html>

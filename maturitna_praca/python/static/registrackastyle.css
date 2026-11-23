@@ -149,12 +149,12 @@
 
         /* Top track moves Left to Right */
         .track-top {
-            animation: panRight 70s linear infinite;
+            animation: panRight 80s linear infinite;
         }
 
         /* Bottom track moves Right to Left */
         .track-bottom {
-            animation: panLeft 70s linear infinite;
+            animation: panLeft 80s linear infinite;
         }
 
         .image-set {
