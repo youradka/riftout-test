@@ -26,6 +26,10 @@ mycursor = mydb.cursor(buffered=True)
 def homepage():
     return render_template("home.html")
 
+@app.route('/')
+def index():
+    return redirect(url_for('homepage'))
+
 @app.route('/signup')
 def signup():
     return render_template("signup.html")
