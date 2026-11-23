@@ -6,8 +6,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='homestyles.css') }}">
     <title>Riftout</title>
 </head>
-<body>
-    <header>
+<header>
         <a href="/homepage"><h1 style="font-size:150%">Riftout</h1></a>
         
         <nav id="nav-list">
@@ -31,11 +30,40 @@
                 <a href="{{ url_for('login') }}" class="add-user-btn" title="Prihlásiť sa / Pridať účet">+</a>
             {% endif %}
         </div>
-    </header>
+</header>
+<body>
+<div class="split-bg-container">
+    <div class="half-screen">
+            <div class="scrolling-track track-top">
+                <!-- SET 1 (Will be revealed as we pan right) -->
+                <div class="image-set">
+                    <img src="{{ url_for('static', filename='/obrazky/missfortune.png') }}" alt="Leblanc Card">
+                    <img src="{{ url_for('static', filename='/obrazky/lillia.jpg') }}" alt="Karta 2">
+                    <img src="{{ url_for('static', filename='/obrazky/lux.jpg') }}" alt="lux">
+                    <img src="{{ url_for('static', filename='/obrazky/vex.jpg') }}" alt="vex">
+                    <img src="{{ url_for('static', filename='/obrazky/darius.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='/obrazky/leona.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='/obrazky/mel.jpg') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='/obrazky/teemo.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='/obrazky/kaisa.png') }}" alt="Karta 5">
+                </div>
+                <!-- SET 2 (Duplicate for seamless loop) -->
+                <div class="image-set">
+                    <img src="{{ url_for('static', filename='/obrazky/missfortune.png') }}" alt="Leblanc Card">
+                    <img src="{{ url_for('static', filename='/obrazky/lillia.jpg') }}" alt="Karta 2">
+                    <img src="{{ url_for('static', filename='/obrazky/lux.jpg') }}" alt="lux">
+                    <img src="{{ url_for('static', filename='/obrazky/vex.jpg') }}" alt="vex">
+                    <img src="{{ url_for('static', filename='/obrazky/darius.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='/obrazky/leona.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='/obrazky/mel.jpg') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='/obrazky/teemo.png') }}" alt="Karta 5">
+                    <img src="{{ url_for('static', filename='/obrazky/kaisa.png') }}" alt="Karta 5">
+                </div>
+            </div>
+        </div>   
+  </div>
 
-    <main>
-    </main>    
-
-    <footer>Andrea Kmeťová</footer> 
+    
 </body>
+<footer>Andrea Kmeťová</footer> 
 </html>

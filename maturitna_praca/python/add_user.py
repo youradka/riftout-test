@@ -1,5 +1,6 @@
+import os
 import mysql.connector
-from flask import Flask, request, render_template, flash, redirect, url_for, session, jsonify
+from flask import Flask, request, render_template, flash, redirect, url_for, session, jsonify, g
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -9,34 +10,48 @@ from datetime import datetime
 import ssl
 
 app = Flask(__name__)
-app.secret_key = "nejaky_tajny_kluc"
+app.secret_key = os.environ["SECRET_KEY"]
 
-mydb = mysql.connector.connect(
-    host="localhost",
-    user="root", #podla pc na ktorom som robila
-    password="12345",
-    #user = "andrejka",
-    #password="12345678",
-    database="maturitna_praca"
-)
-mycursor = mydb.cursor(buffered=True)
+
+def get_db():
+    if "db" not in g:
+        g.db = mysql.connector.connect(
+            host=os.environ["DB_HOST"],
+            user=os.environ["DB_USER"],
+            password=os.environ["DB_PASSWORD"],
+            database=os.environ["DB_NAME"],
+        )
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(exception=None):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+
 # zmena pagu
 
 @app.route('/homepage')
 def homepage():
     return render_template("home.html")
 
+
 @app.route('/')
 def index():
     return redirect(url_for('homepage'))
+
 
 @app.route('/signup')
 def signup():
     return render_template("signup.html")
 
+
 @app.route('/decky')
 def decky():
     return render_template("decky.html")
+
 
 # registrácia a prihlásenie page logika
 
@@ -49,11 +64,12 @@ def add_user():
         with open("static/obrazky/default.jpg", "rb") as f:
             default_data = f.read()
 
+        cursor = get_db().cursor(buffered=True)
         try:
             sql = "INSERT INTO users (username, heslo, email, picture) VALUES (%s, %s, %s, %s)"
             values = (username, password, email, default_data)
-            mycursor.execute(sql, values)
-            mydb.commit()
+            cursor.execute(sql, values)
+            get_db().commit()
 
             flash("Registrácia prebehla úspešne!", "success")
             return redirect(url_for('forum'))
@@ -61,8 +77,11 @@ def add_user():
         except mysql.connector.IntegrityError:
             flash("Používateľ už existuje!", "error")
             return redirect(url_for('signup'))
+        finally:
+            cursor.close()
 
     return render_template("signup.html")
+
 
 @app.route('/login', methods=["GET", "POST"])
 @app.route('/login_user', methods=["GET", "POST"])
@@ -74,8 +93,10 @@ def login():
         sql = "SELECT username FROM users WHERE (username=%s OR email=%s) AND heslo=%s"
         values = (username, username, password)
 
-        mycursor.execute(sql, values)
-        user = mycursor.fetchone()
+        cursor = get_db().cursor(buffered=True)
+        cursor.execute(sql, values)
+        user = cursor.fetchone()
+        cursor.close()
 
         if user:
             session["username"] = user[0]
@@ -87,11 +108,13 @@ def login():
     # Ak používateľ len otvorí stránku (metóda GET), zobrazí sa mu prihlasovací formulár
     return render_template("login.html")
 
-@app.route('/logout', methods = ["GET","POST"])
+
+@app.route('/logout', methods=["GET", "POST"])
 def logout():
     session.pop('username', None)
     flash("Úspešne si sa odhlásila.", "success")
     return redirect(url_for('forum'))
+
 
 @app.context_processor
 def inject_user():
@@ -101,8 +124,10 @@ def inject_user():
     if "username" in session:
         logged_in = True
         sql = "SELECT picture FROM users WHERE username=%s"
-        mycursor.execute(sql, (session["username"],))
-        user_data = mycursor.fetchone()
+        cursor = get_db().cursor(buffered=True)
+        cursor.execute(sql, (session["username"],))
+        user_data = cursor.fetchone()
+        cursor.close()
 
         if user_data and user_data[0]:
             profile_pic = base64.b64encode(user_data[0]).decode("utf-8")
@@ -120,8 +145,9 @@ def editor():
     if "username" not in session:
         flash("Pre úpravu profilu sa musíš prihlásiť.", "error")
         return redirect(url_for('login'))
-        
+
     return render_template("editor.html")
+
 
 @app.route('/update_profile_pic', methods=["POST"])
 def update_profile_pic():
@@ -134,9 +160,11 @@ def update_profile_pic():
         file_data = file.read()
         sql = "UPDATE users SET picture = %s WHERE username = %s"
         values = (file_data, session["username"])
-        
-        mycursor.execute(sql, values)
-        mydb.commit()
+
+        cursor = get_db().cursor(buffered=True)
+        cursor.execute(sql, values)
+        get_db().commit()
+        cursor.close()
 
         flash("Profilová fotka bola úspešne zmenená!", "success")
     else:
@@ -149,10 +177,11 @@ def update_profile_pic():
 
 @app.route('/forum')
 def forum():
+    cursor = get_db().cursor(buffered=True)
     # Vytiahneme všetky príspevky z databázy (najnovšie prvé)
-    mycursor.execute("SELECT idposty, nazov, obsah, plikes, pdatum, users_username FROM posty ORDER BY pdatum DESC")
-    posts_data = mycursor.fetchall()
-    
+    cursor.execute("SELECT idposty, nazov, obsah, plikes, pdatum, users_username FROM posty ORDER BY pdatum DESC")
+    posts_data = cursor.fetchall()
+
     posts = []
     for p in posts_data:
         post = {
@@ -164,23 +193,23 @@ def forum():
             'autor': p[5],
             'komentare': []
         }
-        
-        # Vytiahneme komentáre priradené k tomuto príspevku
+
         # Vytiahneme komentáre priradené k tomuto príspevku (PRIDANÉ idkomenty)
         sql_komenty = "SELECT idkomenty, users_username, kobsah, kdatum FROM komenty WHERE posty_idposty = %s ORDER BY kdatum ASC"
-        mycursor.execute(sql_komenty, (post['idposty'],))
-        komenty_data = mycursor.fetchall()
-        
+        cursor.execute(sql_komenty, (post['idposty'],))
+        komenty_data = cursor.fetchall()
+
         for k in komenty_data:
             post['komentare'].append({
-                'idkomenty': k[0], # Uložíme si ID komentára pre funkciu vymazania
+                'idkomenty': k[0],  # Uložíme si ID komentára pre funkciu vymazania
                 'autor': k[1],
                 'obsah': k[2],
                 'datum': k[3]
             })
-            
+
         posts.append(post)
 
+    cursor.close()
     return render_template("forum.html", posts=posts)
 
 
@@ -197,10 +226,11 @@ def pridaj_prispevok():
     aktualny_cas = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     sql = "INSERT INTO posty (nazov, obsah, plikes, users_username, pdatum) VALUES (%s, %s, 0, %s, %s)"
-    
-    
-    mycursor.execute(sql, (nazov, obsah, autor, aktualny_cas))
-    mydb.commit()
+
+    cursor = get_db().cursor(buffered=True)
+    cursor.execute(sql, (nazov, obsah, autor, aktualny_cas))
+    get_db().commit()
+    cursor.close()
 
     flash("Príspevok bol úspešne pridaný!", "success")
     return redirect(url_for('forum'))
@@ -217,14 +247,15 @@ def pridaj_komentar(idposty):
 
     aktualny_cas = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    # ZMENA: Do príkazu INSERT sme pridali stĺpec 'kdatum' a ďalšie '%s'
     sql = "INSERT INTO komenty (kobsah, posty_idposty, users_username, kdatum) VALUES (%s, %s, %s, %s)"
-    
-    # ZMENA: Posielame 'aktualny_cas' ako štvrtú hodnotu
-    mycursor.execute(sql, (kobsah, idposty, autor, aktualny_cas))
-    mydb.commit()
+
+    cursor = get_db().cursor(buffered=True)
+    cursor.execute(sql, (kobsah, idposty, autor, aktualny_cas))
+    get_db().commit()
+    cursor.close()
 
     return redirect(url_for('forum'))
+
 
 @app.route('/vymaz_prispevok/<int:idposty>', methods=["POST"])
 def vymaz_prispevok(idposty):
@@ -235,58 +266,59 @@ def vymaz_prispevok(idposty):
 
     aktualny_pouzivatel = session["username"]
 
+    cursor = get_db().cursor(buffered=True)
     # Zistíme, kto je autorom tohto príspevku
-    mycursor.execute("SELECT users_username FROM posty WHERE idposty = %s", (idposty,))
-    post = mycursor.fetchone()
+    cursor.execute("SELECT users_username FROM posty WHERE idposty = %s", (idposty,))
+    post = cursor.fetchone()
 
     # Ak príspevok existuje a prihlásený používateľ je jeho autorom
     if post and (post[0] == aktualny_pouzivatel or aktualny_pouzivatel == "admin"):
         # NAJPRV vymažeme všetky komentáre, ktoré patria k tomuto príspevku
-        mycursor.execute("DELETE FROM komenty WHERE posty_idposty = %s", (idposty,))
-        
+        cursor.execute("DELETE FROM komenty WHERE posty_idposty = %s", (idposty,))
+
         # POTOM vymažeme samotný príspevok
-        mycursor.execute("DELETE FROM posty WHERE idposty = %s", (idposty,))
-        
-        mydb.commit()
+        cursor.execute("DELETE FROM posty WHERE idposty = %s", (idposty,))
+
+        get_db().commit()
         flash("Príspevok bol úspešne vymazaný.", "success")
     else:
         # Ak sa niekto snaží vymazať cudzí príspevok
         flash("Tento príspevok nemôžeš vymazať, pretože nie si jeho autorom.", "error")
 
+    cursor.close()
     # Po úspešnom vymazaní (alebo chybe) obnovíme stránku fóra
     return redirect(url_for('forum'))
 
 
-#logika hlaovania T-T
+# logika hlasovania T-T
 @app.route('/hlasuj/<int:idposty>/<akcia>', methods=["POST"])
 def hlasuj(idposty, akcia):
-    
     if "username" not in session:
         flash("Pre hlasovanie sa musíš prihlásiť.", "error")
         return redirect(url_for('forum'))
 
     aktualny_pouzivatel = session["username"]
 
-    mycursor.execute("SELECT users_username FROM posty WHERE idposty = %s", (idposty,))
-    post = mycursor.fetchone()
-    
+    cursor = get_db().cursor(buffered=True)
+    cursor.execute("SELECT users_username FROM posty WHERE idposty = %s", (idposty,))
+    post = cursor.fetchone()
+
     if post and post[0] == aktualny_pouzivatel:
+        cursor.close()
         flash("Nemôžeš hlasovať za svoj vlastný príspevok!", "error")
         return redirect(url_for('forum'))
 
-
     sql_kontrola = "SELECT hlasoval FROM hlasovania WHERE posty_idposty = %s AND users_username = %s"
-    mycursor.execute(sql_kontrola, (idposty, aktualny_pouzivatel))
-    uz_hlasoval = mycursor.fetchone()
-    if not uz_hlasoval :
+    cursor.execute(sql_kontrola, (idposty, aktualny_pouzivatel))
+    uz_hlasoval = cursor.fetchone()
+    if not uz_hlasoval:
         dotaz = "Insert into hlasovania (posty_idposty, users_username, hlasoval) values (%s , %s, 0) "
-        mycursor.execute(dotaz, (idposty, aktualny_pouzivatel))
-        mydb.commit()
+        cursor.execute(dotaz, (idposty, aktualny_pouzivatel))
+        get_db().commit()
         sql_kontrola = "SELECT hlasoval FROM hlasovania WHERE posty_idposty = %s AND users_username = %s"
-        mycursor.execute(sql_kontrola, (idposty, aktualny_pouzivatel))
-        uz_hlasoval = mycursor.fetchone()
-        
-        
+        cursor.execute(sql_kontrola, (idposty, aktualny_pouzivatel))
+        uz_hlasoval = cursor.fetchone()
+
     xu = True
     x = True
     if uz_hlasoval[0] == 1:
@@ -295,7 +327,7 @@ def hlasuj(idposty, akcia):
         sql_update2 = "UPDATE posty SET plikes = plikes + 1 WHERE idposty = %s"
     else:
         x = False
-        
+
     if akcia == "up" and uz_hlasoval[0] == -1:
         sql_update = "UPDATE posty SET plikes = plikes + 1 WHERE idposty = %s"
         hlasoval_update = "Update hlasovania set hlasoval = 1 WHERE posty_idposty = ( select idposty from posty where idposty = %s) and users_username = %s"
@@ -303,31 +335,37 @@ def hlasuj(idposty, akcia):
         sql_update = "UPDATE posty SET plikes = plikes - 1 WHERE idposty = %s"
         hlasoval_update = "Update hlasovania set hlasoval = -1 WHERE posty_idposty = ( select idposty from posty where idposty = %s) and users_username = %s"
     else:
-        if akcia == "up" :
-            if uz_hlasoval[0] ==1 :
+        if akcia == "up":
+            if uz_hlasoval[0] == 1:
                 hlasoval_update = "Update hlasovania set hlasoval = 0 WHERE posty_idposty = ( select idposty from posty where idposty = %s) and users_username = %s "
                 xu = False
             else:
                 sql_update = "UPDATE posty SET plikes = plikes + 1 WHERE idposty = %s"
                 hlasoval_update = "Update hlasovania set hlasoval = 1 WHERE posty_idposty = ( select idposty from posty where idposty = %s) and users_username = %s "
         elif akcia == "down":
-            if uz_hlasoval[0] ==-1 :
+            if uz_hlasoval[0] == -1:
                 hlasoval_update = "Update hlasovania set hlasoval = 0 WHERE posty_idposty = ( select idposty from posty where idposty = %s) and users_username = %s "
                 xu = False
             else:
                 sql_update = "UPDATE posty SET plikes = plikes - 1 WHERE idposty = %s"
                 hlasoval_update = "Update hlasovania set hlasoval = -1 WHERE posty_idposty = ( select idposty from posty where idposty = %s) and users_username = %s"
-        else: return redirect(url_for('forum'))
+        else:
+            cursor.close()
+            return redirect(url_for('forum'))
 
     sql_insert = "INSERT INTO hlasovania (posty_idposty, users_username) VALUES (%s, %s)"
-    
-    if x: mycursor.execute(sql_update2, (idposty,))
-    if xu:mycursor.execute(sql_update, (idposty,))
-    mycursor.execute(hlasoval_update, (idposty, aktualny_pouzivatel))
-    mycursor.execute(sql_insert, (idposty, aktualny_pouzivatel))
-    mydb.commit()
+
+    if x:
+        cursor.execute(sql_update2, (idposty,))
+    if xu:
+        cursor.execute(sql_update, (idposty,))
+    cursor.execute(hlasoval_update, (idposty, aktualny_pouzivatel))
+    cursor.execute(sql_insert, (idposty, aktualny_pouzivatel))
+    get_db().commit()
+    cursor.close()
 
     return redirect(url_for('forum'))
+
 
 @app.route('/vymaz_komentar/<int:idkomenty>', methods=["POST"])
 def vymaz_komentar(idkomenty):
@@ -338,26 +376,31 @@ def vymaz_komentar(idkomenty):
 
     aktualny_pouzivatel = session["username"]
 
+    cursor = get_db().cursor(buffered=True)
     # Zistíme, kto je autorom tohto konkrétneho komentára
-    mycursor.execute("SELECT users_username FROM komenty WHERE idkomenty = %s", (idkomenty,))
-    koment = mycursor.fetchone()
+    cursor.execute("SELECT users_username FROM komenty WHERE idkomenty = %s", (idkomenty,))
+    koment = cursor.fetchone()
 
     # Ak komentár existuje a prihlásený používateľ je jeho autorom
     if koment and (koment[0] == aktualny_pouzivatel or aktualny_pouzivatel == "admin"):
-        mycursor.execute("DELETE FROM komenty WHERE idkomenty = %s", (idkomenty,))
-        mydb.commit()
+        cursor.execute("DELETE FROM komenty WHERE idkomenty = %s", (idkomenty,))
+        get_db().commit()
         flash("Komentár bol úspešne vymazaný.", "success")
     else:
         # Ak sa niekto snaží vymazať cudzí komentár
         flash("Tento komentár nemôžeš vymazať, pretože nie si jeho autorom.", "error")
 
+    cursor.close()
     return redirect(url_for('forum'))
 
+
 KATALOG_CACHE = None
+
 
 @app.route('/kartygal')
 def kartygal():
     return render_template("kartygal.html")
+
 
 @app.route('/api/karty')
 def api_karty():
@@ -509,10 +552,13 @@ def api_karty():
         print("Chyba v /api/karty:", e)
         return jsonify({"error": str(e)}), 500
 
+
 # --- LOBBY A HRANIE (/play.page) ---
 
 @app.route('/play.page')
 def playpage():
+    cursor = get_db().cursor(buffered=True)
+
     # Načítame všetky dostupné decky (spolu s menom legendy z tabuľky legends)
     # Obaja hráči si tak môžu vybrať ktorýkoľvek deck (aj ten istý)
     sql_decks = """
@@ -521,8 +567,8 @@ def playpage():
         LEFT JOIN legends l ON d.legends_idlegends = l.idlegends
         ORDER BY d.iddeck DESC
     """
-    mycursor.execute(sql_decks)
-    decks_data = mycursor.fetchall()
+    cursor.execute(sql_decks)
+    decks_data = cursor.fetchall()
 
     decks = []
     for d in decks_data:
@@ -546,8 +592,9 @@ def playpage():
         LEFT JOIN legends leg2 ON d2.legends_idlegends = leg2.idlegends
         ORDER BY l.vytvorenie DESC
     """
-    mycursor.execute(sql_lobbies)
-    lobbies_data = mycursor.fetchall()
+    cursor.execute(sql_lobbies)
+    lobbies_data = cursor.fetchall()
+    cursor.close()
 
     lobbies = []
     for row in lobbies_data:
@@ -582,8 +629,10 @@ def create_lobby():
         INSERT INTO lobby (player1_username, player1_iddeck, stav, vytvorenie)
         VALUES (%s, %s, 'waiting', %s)
     """
-    mycursor.execute(sql, (session["username"], iddeck, aktualny_cas))
-    mydb.commit()
+    cursor = get_db().cursor(buffered=True)
+    cursor.execute(sql, (session["username"], iddeck, aktualny_cas))
+    get_db().commit()
+    cursor.close()
 
     flash("Lobby bolo úspešne vytvorené! Čaká sa na druhého hráča.", "success")
     return redirect(url_for('playpage'))
@@ -602,18 +651,22 @@ def join_lobby(idlobby):
 
     aktualny_hrac = session["username"]
 
-    mycursor.execute("SELECT player1_username, player2_username FROM lobby WHERE idlobby = %s", (idlobby,))
-    lobby_row = mycursor.fetchone()
+    cursor = get_db().cursor(buffered=True)
+    cursor.execute("SELECT player1_username, player2_username FROM lobby WHERE idlobby = %s", (idlobby,))
+    lobby_row = cursor.fetchone()
 
     if not lobby_row:
+        cursor.close()
         flash("Lobby neexistuje.", "error")
         return redirect(url_for('playpage'))
 
     if lobby_row[0] == aktualny_hrac:
+        cursor.close()
         flash("Nemôžeš sa pripojiť do vlastného lobby ako druhý hráč!", "error")
         return redirect(url_for('playpage'))
 
     if lobby_row[1] is not None:
+        cursor.close()
         flash("Toto lobby je už plné.", "error")
         return redirect(url_for('playpage'))
 
@@ -622,8 +675,9 @@ def join_lobby(idlobby):
         SET player2_username = %s, player2_iddeck = %s, stav = 'playing'
         WHERE idlobby = %s
     """
-    mycursor.execute(sql, (aktualny_hrac, iddeck, idlobby))
-    mydb.commit()
+    cursor.execute(sql, (aktualny_hrac, iddeck, idlobby))
+    get_db().commit()
+    cursor.close()
 
     flash("Úspešne si sa pripojila do lobby! Hra začína.", "success")
     return redirect(url_for('playpage'))
@@ -635,15 +689,18 @@ def delete_lobby(idlobby):
         return redirect(url_for('login'))
 
     aktualny_hrac = session["username"]
-    mycursor.execute("SELECT player1_username, player2_username FROM lobby WHERE idlobby = %s", (idlobby,))
-    lobby_row = mycursor.fetchone()
+    cursor = get_db().cursor(buffered=True)
+    cursor.execute("SELECT player1_username, player2_username FROM lobby WHERE idlobby = %s", (idlobby,))
+    lobby_row = cursor.fetchone()
 
     if lobby_row and (aktualny_hrac in (lobby_row[0], lobby_row[1]) or aktualny_hrac == "admin"):
-        mycursor.execute("DELETE FROM lobby WHERE idlobby = %s", (idlobby,))
-        mydb.commit()
+        cursor.execute("DELETE FROM lobby WHERE idlobby = %s", (idlobby,))
+        get_db().commit()
         flash("Lobby bolo ukončené a vymazané.", "success")
 
+    cursor.close()
     return redirect(url_for('playpage'))
+
 
 # --- SPUSTENIE SERVERA (MUSÍ BYŤ ÚPLNE NA KONCI) ---
 if __name__ == "__main__":

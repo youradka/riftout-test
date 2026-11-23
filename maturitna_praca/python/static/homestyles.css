@@ -126,3 +126,68 @@ footer {
     color: #333;
     font-size: 14px;
 }
+
+.split-bg-container {
+    margin-top: 50px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    z-index: -1; /* Behind everything */
+    pointer-events: none; /* Prevent interacting with images */
+}
+
+.half-screen {
+    height: 94vh;
+    width: 100vw;
+    overflow: hidden;
+    position: relative;
+}
+        
+        /* Thin border to separate top and bottom halves */
+.bottom-half {
+    border-top: 2px solid rgba(178, 90, 250, 0.4);
+}
+
+.scrolling-track {
+    display: flex;
+    height: 100%;
+    width: max-content;
+    will-change: transform;
+}
+
+        /* Top track moves Left to Right */
+.track-top {
+    animation: panRight 70s linear infinite;
+}
+
+        /* Bottom track moves Right to Left */
+.track-bottom {
+    animation: panLeft 70s linear infinite;
+}
+
+.image-set {
+    display: flex;
+    height: 100%;
+}
+
+.image-set img {
+    height: 100%;
+    aspect-ratio: 5 / 7;
+    object-fit: cover;
+    flex-shrink: 0;
+    border-right: 2px solid #111;
+    opacity: 0.6; 
+}
+
+@keyframes panRight {
+    0% {
+        transform: translateX(-50%);
+        }
+    100% {
+        transform: translateX(0);
+        }
+}
